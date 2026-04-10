@@ -433,38 +433,41 @@ async def start_activate(callback: types.CallbackQuery, state: FSMContext):
 
 @router.message(BotStates.waiting_for_key)
 async def process_key(message: types.Message, state: FSMContext):
-    # 1. Защита от нетекстовых сообщений (стикеры, фото)
     if not message.text:
         return await message.answer("❌ Отправьте ключ текстом.")
 
-    # Чистим ввод от лишних пробелов
     key = message.text.strip()
     
-    # 2. Вызываем функцию активации
-    # Передаем только очищенные данные
     try:
-        activated_days = await use_promo_key(message.from_user.id, key)
+        # Вызываем обновленную функцию
+        result = await use_promo_key(message.from_user.id, key)
     except Exception as e:
         logging.error(f"Ошибка активации ключа для {message.from_user.id}: {e}")
-        return await message.answer("🛠 Произошла ошибка на стороне базы данных. Попробуйте позже.")
+        return await message.answer("🛠 Произошла ошибка. Попробуйте позже.")
     
-    if activated_days:
-        # Успешная активация
+    # 1. СЛУЧАЙ: Лимит исчерпан
+    if result == "limit_exceeded":
+        return await message.answer(
+            "❌ <b>Ошибка!</b>\nЛимит активаций этого ключа уже исчерпан другими пользователями."
+        )
+
+    # 2. СЛУЧАЙ: Успех (вернулось количество дней)
+    elif result:
         await message.answer(
             f"✅ <b>Красавчик!</b>\n"
-            f"Подписка успешно активирована на <b>{activated_days}</b> {plural_days(activated_days)}.\n\n"
+            f"Подписка успешно активирована на <b>{result}</b> {plural_days(result)}.\n\n"
             f"Теперь ты можешь запустить <b>отслеживание</b> скинов в реальном времени! 🔥",
-            reply_markup=main_kb() # Сразу даем меню для работы
+            reply_markup=main_kb() 
         )
-        # Очищаем стейт только ПРИ УСПЕХЕ
         await state.clear()
+
+    # 3. СЛУЧАЙ: Ключ не найден (None)
     else:
-        # Кнопка "Назад", чтобы юзер не застрял, если у него нет рабочего ключа
         kb = InlineKeyboardBuilder()
         kb.row(types.InlineKeyboardButton(text="🔙 Назад", callback_data="start_menu"))
         
         await message.answer(
-            "❌ <b>Ошибка!</b>\nКлюч недействителен, уже использован или введен неверно.",
+            "❌ <b>Ошибка!</b>\nКлюч недействителен или введен неверно.",
             reply_markup=kb.as_markup()
         )
         # Стейт НЕ очищаем, чтобы юзер мог попробовать ввести другой ключ или исправить опечатку
