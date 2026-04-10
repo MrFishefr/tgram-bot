@@ -9,6 +9,9 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.storage.redis import RedisStorage
+redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+
+storage = RedisStorage.from_url(redis_url)
 import aiohttp
 from aiohttp_socks import ProxyConnector
 import socket
@@ -824,7 +827,7 @@ async def track_step_2_save_to_db(event: types.Union[types.Message, types.Callba
     down = data.get("down")
     up = data.get("up")
 
-    # Если данные "протухли" в Redis/памяти
+    # Если данные "протухли" в /памяти
     if not name or down is None:
         await state.clear()
         msg = "❌ Ошибка: сессия истекла. Пожалуйста, найдите скин заново."
@@ -1306,15 +1309,15 @@ async def main() -> None:
     # --- ШАГ 0: ТОЛЬКО НУЖНЫЕ ИМПОРТЫ ---
     from aiogram import Dispatcher, Bot
     from aiogram.client.default import DefaultBotProperties
-    from redis.asyncio import Redis
-    from aiogram.fsm.storage.redis import RedisStorage
+    from .asyncio import 
+    from aiogram.fsm.storage. import Storage
 
     print("🌐 Запуск бота в стандартном режиме...")
     
-    # --- 1. Настройка Redis ---
+    # --- 1. Настройка  ---
     try:
-        r_client = Redis(host='localhost', port=6379)
-        storage = RedisStorage(redis=r_client)
+        r_client = (host='localhost', port=6379)
+        storage = RedisStorage.from_url(redis_url)
         print("✅ Redis подключен.")
     except Exception as e:
         print(f"❌ Ошибка Redis: {e}. Использую память.")
