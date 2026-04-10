@@ -284,21 +284,36 @@ async def adm_promo_save(message: types.Message, state: FSMContext):
 
 @router.message(Command("get_key"))
 async def adm_get_key(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS: return
+    # Проверка на админа
+    if message.from_user.id not in ADMIN_IDS: 
+        return
 
     try:
-        # Команда: /get_key 30
-        days = int(message.text.split()[1])
+        # Разбираем команду: /get_key дни [активации]
+        args = message.text.split()
+        days = int(args[1])
+        
+        # Если второй аргумент не ввели, ставим 1 активацию по умолчанию
+        acts = int(args[2]) if len(args) > 2 else 1
         
         from database import create_random_key
-        new_key = await create_random_key(days)
+        # Передаем оба параметра в функцию
+        new_key = await create_random_key(days, acts)
         
         await message.answer(
-    f"🔑 <b>Ключ на {days} дн. сгенерирован:</b>\n"
-    f"<code>{html.escape(new_key)}</code>"
-)
-    except:
-        await message.answer("❌ Ошибка! Используйте: <code>/get_key количество_дней</code>")
+            f"🔑 <b>Ключ сгенерирован:</b>\n\n"
+            f"🎫 Код: <code>{html.escape(new_key)}</code>\n"
+            f"⏳ Срок: <b>{days}</b> дн.\n"
+            f"👥 Лимит: <b>{acts}</b> акт.",
+            parse_mode="HTML"
+        )
+    except (IndexError, ValueError):
+        await message.answer(
+            "❌ <b>Ошибка!</b>\n"
+            "Используйте: <code>/get_key дни [активации]</code>\n"
+            "Пример: <code>/get_key 30 5</code>"
+        )
+
 
 @router.callback_query(F.data == "start_menu")
 async def return_to_main_menu(callback: types.CallbackQuery, state: FSMContext):
