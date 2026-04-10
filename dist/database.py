@@ -72,6 +72,8 @@ async def init_db():
              sub_end_date TEXT, 
              is_active INTEGER DEFAULT 0)''')
 
+        await db.execute("DROP TABLE IF EXISTS monitoring")
+
         # 2. ТАБЛИЦА СКИДОК
         await db.execute('''CREATE TABLE IF NOT EXISTS discount_codes 
             (code TEXT PRIMARY KEY, percent INTEGER)''')
