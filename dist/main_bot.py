@@ -11,7 +11,7 @@ from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.storage.redis import RedisStorage
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
 
-storage = RedisStorage.from_url(redis_url)
+
 import aiohttp
 from aiohttp_socks import ProxyConnector
 import socket
