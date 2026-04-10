@@ -182,10 +182,12 @@ async def get_market_tops(limit=5):
 
 async def get_user_monitoring(user_id):
     db = await get_db()
-    # Берем ID записи, имя, пороги и интервал
+    # Четко прописываем имена, чтобы не зависеть от порядка в CREATE TABLE
     sql = "SELECT id, item_name, threshold_down, threshold_up, interval_min FROM monitoring WHERE user_id = ?"
     async with db.execute(sql, (user_id,)) as cursor:
-        return await cursor.fetchall()
+        rows = await cursor.fetchall()
+        print(f"DEBUG: Найдено для {user_id}: {len(rows)} записей") # Это появится в логах Railway
+        return rows
 
 
 # --- СИСТЕМА ПОДПИСОК (ПРОДОЛЖЕНИЕ) ---
