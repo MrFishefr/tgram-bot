@@ -56,7 +56,6 @@ redis==7.4.0
 requests==2.33.1
 setuptools==82.0.1
 six==1.17.0
-tg-ws-proxy @ file:///home/kirill/trade_bot/ezzz/tg-ws-proxy
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 urllib3==2.6.3
