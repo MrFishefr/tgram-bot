@@ -888,10 +888,17 @@ async def track_step_2_save_to_db(event: types.Union[types.Message, types.Callba
             await event.answer(msg_text, reply_markup=stop_kb)
 
     except Exception as e:
-        logging.error(f"🚨 Ошибка сохранения мониторинга: {e}")
+        import traceback
+        logging.error(f"🚨 Ошибка сохранения мониторинга: {e}\n{traceback.format_exc()}")
+        
+        # Выводим конкретный текст ошибки в чат, чтобы понять, чего не хватает базе
+        error_details = f"🛠 Ошибка БД: {e}"
+        if isinstance(event, types.CallbackQuery):
+            await event.message.answer(error_details)
+        else:
+            await event.answer(error_details)
+            
         await state.clear()
-        error_msg = "🛠 Произошла ошибка при сохранении. Попробуйте еще раз."
-        await (event.message.answer(error_msg) if isinstance(event, types.CallbackQuery) else event.answer(error_msg))
 
 # --- ОБРАБОТЧИК КНОПКИ СТОП (ОСТАВЛЯЕМ КАК ЕСТЬ) ---
 @router.callback_query(F.data.startswith("stop_track_"))
