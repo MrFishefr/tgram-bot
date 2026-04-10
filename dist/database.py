@@ -68,6 +68,10 @@ async def init_db():
              name TEXT UNIQUE, 
              url TEXT)''')
         await db.execute("CREATE INDEX IF NOT EXISTS idx_items_name ON items (name)")
+
+
+        await db.execute('''CREATE TABLE IF NOT EXISTS activated_log 
+                    (user_id INTEGER, key_code TEXT, PRIMARY KEY(user_id, key_code))''')
                 
         # 5. ТАБЛИЦА МОНИТОРИНГА
         await db.execute('''CREATE TABLE IF NOT EXISTS monitoring 
