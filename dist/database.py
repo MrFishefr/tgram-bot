@@ -39,6 +39,21 @@ async def get_db():
         print("🚀 БАЗА В ТУРБО-РЕЖИМЕ (WAL)")
     return db_conn
 
+
+async def migrate_db():
+    db = await get_db()
+    # Проверяем, есть ли уже новые колонки, чтобы не вылетала ошибка
+    try:
+        await db.execute("ALTER TABLE promo_keys ADD COLUMN max_activations INTEGER DEFAULT 1")
+        await db.execute("ALTER TABLE promo_keys ADD COLUMN current_activations INTEGER DEFAULT 0")
+        # Удаляем старую колонку is_used, если она не нужна (опционально)
+        # await db.execute("ALTER TABLE promo_keys DROP COLUMN is_used") 
+        await db.commit()
+        print("✅ База данных успешно обновлена")
+    except:
+        # Если колонки уже есть, sqlite выдаст ошибку, просто игнорируем её
+        pass
+
 async def init_db():
     """Создаем таблицы через общее соединение"""
     db = await get_db() 
