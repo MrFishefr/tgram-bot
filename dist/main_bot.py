@@ -10,6 +10,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.storage.base import BaseStorage
 from aiogram.fsm.storage.redis import RedisStorage
+import os
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
 
 
@@ -1315,7 +1316,8 @@ async def main() -> None:
     
     # --- 1. Настройка  ---
     try:
-        r_client = (host='localhost', port=6379)
+        from redis.asyncio import Redis
+        r_client = Redis(host='localhost', port=6379)
         storage = RedisStorage.from_url(redis_url)
         print("✅ Redis подключен.")
     except Exception as e:
