@@ -8,6 +8,7 @@ from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
+from aiogram.fsm.storage.base import BaseStorage
 from aiogram.fsm.storage.redis import RedisStorage
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
 
