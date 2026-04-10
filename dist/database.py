@@ -87,8 +87,9 @@ async def init_db():
         # 6. ТАБЛИЦА ПРОМОКОДОВ (КЛЮЧЕЙ)
         await db.execute('''CREATE TABLE IF NOT EXISTS promo_keys 
             (key_code TEXT PRIMARY KEY, 
-             days INTEGER, 
-             is_used INTEGER DEFAULT 0)''')
+             days INTEGER,
+             max_activations INTEGER DEFAULT 1,
+             current_activations INTEGER DEFAULT 0)''')
         
         # Фиксируем изменения
         await db.commit() 
@@ -215,34 +216,58 @@ async def get_user_sub_days(user_id):
 # --- СИСТЕМА ПРОМОКОДОВ (ЗАВЕРШЕННАЯ) ---
 
 async def use_promo_key(user_id, key_code):
-    """Проверяет ключ и ДОБАВЛЯЕТ время к подписке"""
+    """Проверяет ключ и ДОБАВЛЯЕТ время к подписке (многоразовые ключи)"""
     db = await get_db()
     
-    # 1. Проверяем ключ
-    async with db.execute("SELECT days FROM promo_keys WHERE key_code = ? AND is_used = 0", (key_code,)) as cursor:
+    # 1. Получаем данные ключа
+    async with db.execute(
+        "SELECT days, max_activations, current_activations FROM promo_keys WHERE key_code = ?", 
+        (key_code,)
+    ) as cursor:
         row = await cursor.fetchone()
-        if not row:
-            return None
-        days_to_add = row[0]
+        
+    if not row:
+        return None  # Ключ не существует
+    
+    days_to_add, max_act, curr_act = row
+    
+    # 2. Проверяем, остались ли свободные активации
+    if curr_act >= max_act:
+        return "limit_exceeded" 
 
-    # 2. Помечаем ключ как использованный
-    await db.execute("UPDATE promo_keys SET is_used = 1 WHERE key_code = ?", (key_code,))
+    # 3. Увеличиваем счетчик активаций
+    await db.execute(
+        "UPDATE promo_keys SET current_activations = current_activations + 1 WHERE key_code = ?", 
+        (key_code,)
+    )
 
-    # 3. Узнаем текущую дату окончания подписки
+    # 4. Рассчитываем время (твоя логика из PDF)
     async with db.execute("SELECT sub_end_date FROM users WHERE user_id = ?", (user_id,)) as cursor:
         user_row = await cursor.fetchone()
-        
-        now = datetime.now()
-        if user_row and user_row[0]:
-            try:
-                current_end = datetime.fromisoformat(user_row[0])
-                start_from = current_end if current_end > now else now
-            except:
-                start_from = now
-        else:
+    
+    now = datetime.now()
+    if user_row and user_row[0]:
+        try:
+            current_end = datetime.fromisoformat(user_row[0])
+            start_from = current_end if current_end > now else now
+        except:
             start_from = now
+    else:
+        start_from = now
+        
+    new_date = start_from + timedelta(days=days_to_add)
 
-        new_date = start_from + timedelta(days=days_to_add)
+    # 5. Обновляем пользователя
+    await db.execute('''INSERT OR REPLACE INTO users (user_id, sub_end_date, is_active) 
+                        VALUES (?, ?, 1)''', (user_id, new_date.isoformat()))
+    
+    await db.commit()
+
+    # Очистка кэша (чтобы бот сразу увидел новую дату)
+    sub_cache.pop(user_id, None)
+    days_cache.pop(user_id, None)
+        
+    return days_to_add
 
     # 4. СОХРАНЯЕМ В БАЗУ (Вот этого не хватало!)
     await db.execute('''INSERT OR REPLACE INTO users (user_id, sub_end_date, is_active) 
@@ -286,14 +311,16 @@ async def get_price_hour_ago(item_id):
 
 # --- ГЕНЕРАЦИЯ КЛЮЧЕЙ ---
 
-async def create_random_key(days):
-    """Генерирует ключ через общее соединение"""
+async def create_random_key(days, max_act=1):
+    """Генерирует ключ с заданным количеством активаций"""
     chars = string.ascii_uppercase + string.digits
-    # Создаем формат XXXX-XXXX-XXXX-XXXX
     key_code = '-'.join(''.join(random.choice(chars) for _ in range(4)) for _ in range(4))
     
     db = await get_db()
-    await db.execute("INSERT INTO promo_keys (key_code, days, is_used) VALUES (?, ?, 0)", (key_code, days))
+    await db.execute(
+        "INSERT INTO promo_keys (key_code, days, max_activations, current_activations) VALUES (?, ?, ?, 0)", 
+        (key_code, days, max_act)
+    )
     await db.commit()
     return key_code
 
