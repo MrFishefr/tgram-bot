@@ -1309,8 +1309,6 @@ async def main() -> None:
     # --- ШАГ 0: ТОЛЬКО НУЖНЫЕ ИМПОРТЫ ---
     from aiogram import Dispatcher, Bot
     from aiogram.client.default import DefaultBotProperties
-    from .asyncio import 
-    from aiogram.fsm.storage. import Storage
 
     print("🌐 Запуск бота в стандартном режиме...")
     
