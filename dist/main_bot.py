@@ -862,11 +862,15 @@ async def track_step_2_save_to_db(event: types.Union[types.Message, types.Callba
             current_price = await get_actual_price(name) or 0
 
         # Атомарная запись в БД
+        # Атомарная запись в БД (ЯВНО УКАЗЫВАЕМ КОЛОНКИ)
         await db_conn.execute(
-            "INSERT INTO monitoring (user_id, item_id, item_name, threshold_down, threshold_up, last_price, interval_min, next_check) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            """INSERT INTO monitoring 
+            (user_id, item_id, item_name, threshold_down, threshold_up, last_price, interval_min, next_check) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (event.from_user.id, item_id, name, down, up, current_price, interval, next_time)
         )
         await db_conn.commit()
+
         await state.clear()
 
         # 4. Формируем финальный ответ
