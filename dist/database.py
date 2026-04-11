@@ -11,8 +11,16 @@ import base64
 import os
 
 # Получаем путь к текущей папке бота (универсально для всех систем)
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Поднимаемся на уровень выше, в корень проекта (/app)
+BASE_DIR = os.path.dirname(current_dir)
+
+# Теперь база ВСЕГДА будет одна — в корне проекта
 DB_PATH = os.path.join(BASE_DIR, "trade1_bot.db")
+
+print(f"✅ ВСЕ ФУНКЦИИ ТЕПЕРЬ СМОТРЯТ В ОДНУ БАЗУ: {DB_PATH}")
+
 
 
 # 1. КОНСТАНТЫ И КЭШ (в самом верху)
