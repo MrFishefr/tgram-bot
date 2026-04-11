@@ -10,11 +10,7 @@ import os
 
 # Получаем путь к текущей папке бота (универсально для всех систем)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-if os.path.exists("/app/data"):
-    DB_PATH = "/app/data/trade1_bot.db"
-else:
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    DB_PATH = os.path.join(BASE_DIR, "trade1_bot.db")
+DB_PATH = os.path.join(BASE_DIR, "trade1_bot.db")
 
 
 # 1. КОНСТАНТЫ И КЭШ (в самом верху)
