@@ -18,6 +18,7 @@ import aiohttp
 from aiohttp_socks import ProxyConnector
 import socket
 import orjson
+import database
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.exceptions import TelegramBadRequest
 from redis.asyncio import Redis
