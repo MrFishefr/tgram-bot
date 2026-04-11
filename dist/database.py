@@ -28,6 +28,8 @@ DB_NAME = "trade1_bot.db"
 sub_cache = TTLCache(maxsize=1000, ttl=600)
 days_cache = TTLCache(maxsize=1000, ttl=300) # Кэш дней на 5 минут
 db_conn = None
+# Флаг: нужно ли делать бэкап
+db_changed = False 
 items_cache = {}
 
 async def get_db():
@@ -405,51 +407,47 @@ async def get_price_history_24h(item_id):
 
 
 async def backup_to_github():
+    global db_changed
+    # Если изменений не было — просто выходим, не тревожим GitHub
+    if not db_changed:
+        return
+
     token = os.getenv("GITHUB_TOKEN")
     repo = os.getenv("REPO_NAME")
     path = "trade1_bot.db"
     url = f"https://api.github.com/repos/{repo}/contents/{path}"
 
     try:
-        if not token or not repo:
-            print("⚠️ Переменные GITHUB_TOKEN или REPO_NAME не заданы!")
-            return
-
-        # ВАЖНО: Используем DB_PATH, который мы настроили (корень проекта)
-        if not os.path.exists(DB_PATH):
-            print(f"❌ Файл базы не найден по пути: {DB_PATH}")
-            return
+        if not token or not repo: return
+        if not os.path.exists(DB_PATH): return
 
         with open(DB_PATH, "rb") as f:
             content = base64.b64encode(f.read()).decode("utf-8")
 
-        headers = {
-            "Authorization": f"token {token}", 
-            "Accept": "application/vnd.github.v3+json"
-        }
+        headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
         
-        # Получаем SHA (инфа о текущей версии файла на GitHub)
+        # Получаем актуальный SHA (чтобы не было ошибки 409 Conflict)
         res = requests.get(url, headers=headers)
         sha = res.json().get("sha") if res.status_code == 200 else None
 
         data = {
-            "message": "📦 Auto-update database from Railway",
+            "message": "⏰ Scheduled database backup",
             "content": content,
             "branch": "main"
         }
-        if sha:
-            data["sha"] = sha
+        if sha: data["sha"] = sha
 
-        # Отправляем обновленный файл
         put_res = requests.put(url, json=data, headers=headers)
         
         if put_res.status_code in [200, 201]:
-            print("✅ База синхронизирована с GitHub!")
+            print("✅ Плановый бэкап успешно отправлен на GitHub!")
+            db_changed = False # СБРАСЫВАЕМ ФЛАГ
         else:
-            print(f"❌ Ошибка GitHub API ({put_res.status_code}): {put_res.text}")
+            print(f"❌ Ошибка бэкапа ({put_res.status_code}): {put_res.text}")
 
     except Exception as e:
         print(f"🚨 Ошибка выполнения бэкапа: {e}")
+
     
 
 async def load_items_to_cache():
