@@ -4,6 +4,8 @@ import random
 import string
 from datetime import datetime, timedelta
 from cachetools import TTLCache
+import requests
+import base64
 
 
 import os
@@ -49,6 +51,7 @@ async def migrate_db():
         # Удаляем старую колонку is_used, если она не нужна (опционально)
         # await db.execute("ALTER TABLE promo_keys DROP COLUMN is_used") 
         await db.commit()
+        await backup_to_github()
         print("✅ База данных успешно обновлена")
     except:
         # Если колонки уже есть, sqlite выдаст ошибку, просто игнорируем её
@@ -114,6 +117,7 @@ async def init_db():
         
         # Фиксируем изменения
         await db.commit() 
+        await backup_to_github()
         print("✅ База проинициализирована и готова к работе")
         
     except Exception as e:
@@ -134,6 +138,7 @@ async def add_discount_code(code, percent):
     db = await get_db()
     await db.execute("INSERT OR REPLACE INTO discount_codes (code, percent) VALUES (?, ?)", (code, percent))
     await db.commit()
+    await backup_to_github()
 
 async def add_item_to_base(name, url):
     db = await get_db()
@@ -142,6 +147,7 @@ async def add_item_to_base(name, url):
         # Используем INSERT OR IGNORE для избежания ошибок UNIQUE
         await db.execute("INSERT OR IGNORE INTO items (name, url) VALUES (?, ?)", (name, url))
         await db.commit()
+        await backup_to_github()
     except Exception as e:
         print(f"❌ Ошибка добавления скина '{name}': {e}")
 
@@ -151,6 +157,7 @@ async def clear_old_history(days=7):
     # Удаляем историю цен старше 7 дней, чтобы база не раздувалась
     await db.execute("DELETE FROM price_history WHERE timestamp <= datetime('now', ?)", (f'-{days} days',))
     await db.commit()
+    await backup_to_github()
     await db.execute("VACUUM") # Сжимает файл базы после удаления
 
 
@@ -285,6 +292,7 @@ async def use_promo_key(user_id, key_code):
                         VALUES (?, ?, 1)''', (user_id, new_date.isoformat()))
     
     await db.commit()
+    await backup_to_github()
 
     # Очистка кэша (чтобы бот сразу увидел новую дату)
     sub_cache.pop(user_id, None)
@@ -296,6 +304,7 @@ async def use_promo_key(user_id, key_code):
     await db.execute('''INSERT OR REPLACE INTO users (user_id, sub_end_date, is_active) 
                         VALUES (?, ?, 1)''', (user_id, new_date.isoformat()))
     await db.commit()
+    await backup_to_github()
 
     # 🔥 Очищаем кэш, чтобы бот увидел новую дату сразу
     if user_id in sub_cache:
@@ -310,6 +319,7 @@ async def save_price(item_id, price):
     db = await get_db()
     await db.execute("INSERT INTO price_history (item_id, price) VALUES (?, ?)", (item_id, price))
     await db.commit()
+    await backup_to_github()
 
 async def get_price_hour_ago(item_id):
     """Ищет цену час назад мгновенно"""
@@ -325,6 +335,7 @@ async def get_price_hour_ago(item_id):
     await db.execute('''INSERT OR REPLACE INTO users (user_id, sub_end_date, is_active) 
                         VALUES (?, ?, 1)''', (user_id, new_date.isoformat()))
     await db.commit()
+    await backup_to_github()
 
     # 🔥 Сбрасываем кэш, чтобы профиль обновился МГНОВЕННО
     if user_id in sub_cache:
@@ -345,6 +356,7 @@ async def create_random_key(days, max_act=1):
         (key_code, days, max_act)
     )
     await db.commit()
+    await backup_to_github()
     return key_code
 
 # --- СУПЕР-БЫСТРАЯ АНАЛИТИКА ЦЕН ---
@@ -354,6 +366,7 @@ async def save_price(item_id, price):
     db = await get_db()
     await db.execute("INSERT INTO price_history (item_id, price) VALUES (?, ?)", (item_id, price))
     await db.commit()
+    await backup_to_github()
 
 async def get_price_hour_ago(item_id):
     """Ищет историю мгновенно по индексу"""
@@ -380,6 +393,40 @@ async def get_price_history_24h(item_id):
         rows = await cursor.fetchall()
         # Возвращаем список кортежей (цена, время)
         return rows
+
+
+
+async def backup_to_github():
+    token = os.getenv("GITHUB_TOKEN")
+    repo = os.getenv("REPO_NAME")
+    path = "trade1_bot.db" # Имя файла в репозитории
+    url = f"https://github.com{repo}/contents/{path}"
+
+    try:
+        if not token or not repo:
+            return # Если переменные не заданы, ничего не делаем
+
+        with open("trade1_bot.db", "rb") as f:
+            content = base64.b64encode(f.read()).decode("utf-8")
+
+        # Получаем SHA текущего файла (нужно для GitHub API)
+        headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
+        res = requests.get(url, headers=headers)
+        sha = res.json().get("sha") if res.status_code == 200 else None
+
+        data = {
+            "message": "📦 Auto-update database from Railway",
+            "content": content,
+            "branch": "main"
+        }
+        if sha: data["sha"] = sha
+
+        # Отправляем файл
+        put_res = requests.put(url, json=data, headers=headers)
+        if put_res.status_code in [200, 201]:
+            print("✅ База синхронизирована с GitHub!")
+    except Exception as e:
+        print(f"🚨 Ошибка бэкапа: {e}")
     
 
 async def load_items_to_cache():
