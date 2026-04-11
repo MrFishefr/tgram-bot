@@ -408,7 +408,7 @@ async def backup_to_github():
     token = os.getenv("GITHUB_TOKEN")
     repo = os.getenv("REPO_NAME")
     path = "trade1_bot.db" # Имя файла в репозитории
-    url = f"https://github.com{repo}/contents/{path}"
+    url = f"https://api.github.com/repos/{repo}/contents/{path}"
 
     try:
         if not token or not repo:
