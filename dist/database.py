@@ -407,18 +407,28 @@ async def get_price_history_24h(item_id):
 async def backup_to_github():
     token = os.getenv("GITHUB_TOKEN")
     repo = os.getenv("REPO_NAME")
-    path = "trade1_bot.db" # Имя файла в репозитории
+    path = "trade1_bot.db"
     url = f"https://api.github.com/repos/{repo}/contents/{path}"
 
     try:
         if not token or not repo:
-            return # Если переменные не заданы, ничего не делаем
+            print("⚠️ Переменные GITHUB_TOKEN или REPO_NAME не заданы!")
+            return
 
-        with open("trade1_bot.db", "rb") as f:
+        # ВАЖНО: Используем DB_PATH, который мы настроили (корень проекта)
+        if not os.path.exists(DB_PATH):
+            print(f"❌ Файл базы не найден по пути: {DB_PATH}")
+            return
+
+        with open(DB_PATH, "rb") as f:
             content = base64.b64encode(f.read()).decode("utf-8")
 
-        # Получаем SHA текущего файла (нужно для GitHub API)
-        headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
+        headers = {
+            "Authorization": f"token {token}", 
+            "Accept": "application/vnd.github.v3+json"
+        }
+        
+        # Получаем SHA (инфа о текущей версии файла на GitHub)
         res = requests.get(url, headers=headers)
         sha = res.json().get("sha") if res.status_code == 200 else None
 
@@ -427,14 +437,19 @@ async def backup_to_github():
             "content": content,
             "branch": "main"
         }
-        if sha: data["sha"] = sha
+        if sha:
+            data["sha"] = sha
 
-        # Отправляем файл
+        # Отправляем обновленный файл
         put_res = requests.put(url, json=data, headers=headers)
+        
         if put_res.status_code in [200, 201]:
             print("✅ База синхронизирована с GitHub!")
+        else:
+            print(f"❌ Ошибка GitHub API ({put_res.status_code}): {put_res.text}")
+
     except Exception as e:
-        print(f"🚨 Ошибка бэкапа: {e}")
+        print(f"🚨 Ошибка выполнения бэкапа: {e}")
     
 
 async def load_items_to_cache():
