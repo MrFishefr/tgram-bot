@@ -877,7 +877,7 @@ async def track_step_2_save_to_db(event: types.Union[types.Message, types.Callba
         )
         
         await db_conn.commit()
-        await backup_to_github()
+        database.db_changed = True
         print("✅ DEBUG: Запись успешно закомичена в БД!")
         await state.clear()
 
@@ -938,7 +938,7 @@ async def stop_tracking_handler(callback: types.CallbackQuery):
         # (Если нужно удалять конкретный скин, в callback_data стоит добавить item_id)
         await db_conn.execute("DELETE FROM monitoring WHERE user_id = ?", (target_user_id,))
         await db_conn.commit()
-        await backup_to_github()
+        database.db_changed = True
 
         # Также сбрасываем флаг в старом словаре для совместимости
         if target_user_id in active_monitoring:
@@ -1343,7 +1343,13 @@ async def admin_confirm_pay(callback: types.CallbackQuery):
         logging.error(f"Ошибка в данных админ-кнопки: {e}")
 
 
-
+async def backup_scheduler():
+    """Фоновая задача: проверяет изменения раз в 5 минут"""
+    print("⏰ Таймер бэкапа запущен (интервал 5 мин)...")
+    while True:
+        await asyncio.sleep(300) # 300 секунд = 5 минут
+        import database
+        await database.backup_to_github()
 
 async def main() -> None:
     # --- ШАГ 0: ТОЛЬКО НУЖНЫЕ ИМПОРТЫ ---
@@ -1401,6 +1407,7 @@ async def main() -> None:
         print("🚀 БОТ ЗАПУЩЕН! Напиши /start в Telegram")
         
         asyncio.create_task(global_monitor())
+        asyncio.create_task(backup_scheduler())
         
         # Запускаем поллинг (handle_as_tasks=True поможет избежать некоторых ошибок)
         await dp.start_polling(bot, skip_updates=True, handle_as_tasks=True)
@@ -1495,13 +1502,13 @@ async def global_monitor():
                             (new_p, new_next, m_id)
                         )
                         await db_conn.commit()
-                        await backup_to_github()
+                        database.db_changed = True
 
                     except Exception as e:
                         if "forbidden" in str(e).lower() or "chat not found" in str(e).lower():
                             await db_conn.execute("DELETE FROM monitoring WHERE user_id = ?", (u_id,))
                             await db_conn.commit()
-                            await backup_to_github()
+                            database.db_changed = True
                         else:
                             logging.error(f"Ошибка отправки сообщения юзеру {u_id}: {e}")
                 
@@ -1510,7 +1517,7 @@ async def global_monitor():
                     new_next = (now + timedelta(minutes=interval)).isoformat()
                     await db_conn.execute("UPDATE monitoring SET next_check = ? WHERE id = ?", (new_next, m_id))
                     await db_conn.commit()
-                    await backup_to_github()
+                    database.db_changed = True
 
         except Exception as e:
             logging.error(f"Ошибка в global_monitor: {e}")
