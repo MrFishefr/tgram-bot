@@ -32,6 +32,7 @@ from database import (
     create_random_key,
     get_discount,
     get_market_tops,
+    backup_to_github,
     get_user_monitoring # <-- И ЭТО ТОЖЕ
 )
 
@@ -876,6 +877,7 @@ async def track_step_2_save_to_db(event: types.Union[types.Message, types.Callba
         )
         
         await db_conn.commit()
+        await backup_to_github()
         print("✅ DEBUG: Запись успешно закомичена в БД!")
         await state.clear()
 
@@ -936,6 +938,7 @@ async def stop_tracking_handler(callback: types.CallbackQuery):
         # (Если нужно удалять конкретный скин, в callback_data стоит добавить item_id)
         await db_conn.execute("DELETE FROM monitoring WHERE user_id = ?", (target_user_id,))
         await db_conn.commit()
+        await backup_to_github()
 
         # Также сбрасываем флаг в старом словаре для совместимости
         if target_user_id in active_monitoring:
@@ -1492,11 +1495,13 @@ async def global_monitor():
                             (new_p, new_next, m_id)
                         )
                         await db_conn.commit()
+                        await backup_to_github()
 
                     except Exception as e:
                         if "forbidden" in str(e).lower() or "chat not found" in str(e).lower():
                             await db_conn.execute("DELETE FROM monitoring WHERE user_id = ?", (u_id,))
                             await db_conn.commit()
+                            await backup_to_github()
                         else:
                             logging.error(f"Ошибка отправки сообщения юзеру {u_id}: {e}")
                 
@@ -1505,6 +1510,7 @@ async def global_monitor():
                     new_next = (now + timedelta(minutes=interval)).isoformat()
                     await db_conn.execute("UPDATE monitoring SET next_check = ? WHERE id = ?", (new_next, m_id))
                     await db_conn.commit()
+                    await backup_to_github()
 
         except Exception as e:
             logging.error(f"Ошибка в global_monitor: {e}")
